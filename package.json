@@ -1,0 +1,46 @@
+{
+	"name": "@lpm-registry/mcp-server",
+	"version": "0.1.0",
+	"description": "MCP server for the LPM package registry — exposes package info, quality reports, name checks, pool stats, and marketplace search as AI tools",
+	"author": "LPM <hello@lpm.dev> (https://lpm.dev)",
+	"homepage": "https://lpm.dev",
+	"license": "ISC",
+	"keywords": [
+		"lpm",
+		"mcp",
+		"model-context-protocol",
+		"package-registry",
+		"ai-tools"
+	],
+	"type": "module",
+	"main": "lib/server.js",
+	"bin": {
+		"lpm-mcp-server": "./bin/mcp-server.js"
+	},
+	"exports": {
+		".": "./lib/server.js"
+	},
+	"files": [
+		"bin",
+		"lib",
+		"README.md"
+	],
+	"scripts": {
+		"start": "node bin/mcp-server.js",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.12.0",
+		"zod": "^3.24.0"
+	},
+	"optionalDependencies": {
+		"keytar": "^7.9.0"
+	},
+	"devDependencies": {
+		"vitest": "^3.0.0"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	}
+}
