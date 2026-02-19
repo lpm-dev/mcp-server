@@ -1,30 +1,82 @@
 # @lpm-registry/mcp-server
 
-MCP (Model Context Protocol) server for the [LPM](https://lpm.dev) package registry. Gives AI tools like Claude Code, Cursor, and other MCP-compatible agents access to package info, quality reports, name checks, pool earnings, and marketplace search.
+MCP (Model Context Protocol) server for the [LPM](https://lpm.dev) package registry. Gives AI tools like Claude Code, Cursor, and other MCP-compatible agents access to package info, quality reports, name checks, owner/package search, pool earnings, and marketplace search.
 
-## Installation
+## Quick Setup
 
-```bash
-npm install -g @lpm-registry/mcp-server
-```
-
-Or run directly:
+If you have the [LPM CLI](https://lpm.dev/docs/cli) installed, one command configures all your editors:
 
 ```bash
-npx @lpm-registry/mcp-server
+lpm mcp setup
 ```
 
-## Configuration
+This auto-detects Claude Code, Cursor, VS Code, Claude Desktop, and Windsurf, then writes the correct config to each. Authentication is handled via `lpm login` (stored in your OS keychain) — no tokens in config files.
 
-### Authentication
+## Manual Setup
 
-Set the `LPM_TOKEN` environment variable with your LPM API token:
+If you prefer manual configuration, add to your editor's MCP config:
+
+### Claude Code
+
+```json
+{
+  "mcpServers": {
+    "lpm-registry": {
+      "command": "npx",
+      "args": ["@lpm-registry/mcp-server"]
+    }
+  }
+}
+```
+
+### Cursor (`.cursor/mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "lpm-registry": {
+      "command": "npx",
+      "args": ["@lpm-registry/mcp-server"]
+    }
+  }
+}
+```
+
+### VS Code (`.vscode/mcp.json`)
+
+```json
+{
+  "servers": {
+    "lpm-registry": {
+      "command": "npx",
+      "args": ["@lpm-registry/mcp-server"]
+    }
+  }
+}
+```
+
+### Claude Desktop (`claude_desktop_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "lpm-registry": {
+      "command": "npx",
+      "args": ["@lpm-registry/mcp-server"]
+    }
+  }
+}
+```
+
+## Authentication
+
+The server reads your token from the OS keychain (set by `lpm login`). No token in config files required.
+
+Alternatively, set the `LPM_TOKEN` environment variable for environments without keychain access:
 
 ```bash
 export LPM_TOKEN=lpm_your_token_here
 ```
-
-If you've already logged in with the LPM CLI (`lpm login`), the MCP server will automatically read your token from the OS keychain.
 
 ### Registry URL
 
@@ -34,72 +86,18 @@ Defaults to `https://lpm.dev`. Override with:
 export LPM_REGISTRY_URL=https://your-registry.dev
 ```
 
-## MCP Client Setup
-
-### Claude Code
-
-Add to your Claude Code MCP settings (`.claude/settings.json` or global settings):
-
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["@lpm-registry/mcp-server"],
-      "env": {
-        "LPM_TOKEN": "lpm_your_token_here"
-      }
-    }
-  }
-}
-```
-
-### Cursor
-
-Add to your Cursor MCP configuration (`.cursor/mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["@lpm-registry/mcp-server"],
-      "env": {
-        "LPM_TOKEN": "lpm_your_token_here"
-      }
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["@lpm-registry/mcp-server"],
-      "env": {
-        "LPM_TOKEN": "lpm_your_token_here"
-      }
-    }
-  }
-}
-```
-
 ## Available Tools
 
 | Tool | Description | Auth Required |
 |------|-------------|---------------|
-| `lpm_package_info` | Get package metadata (versions, downloads, readme) | Optional |
+| `lpm_package_info` | Get package metadata, AI analysis, access model, and readme | Optional |
 | `lpm_quality_report` | Get quality score and 27-check breakdown | Optional |
 | `lpm_check_name` | Check if a package name is available | Yes |
-| `lpm_pool_stats` | Get your Pool revenue earnings for the current month | Yes |
-| `lpm_marketplace_earnings` | Get your Marketplace revenue summary | Yes |
+| `lpm_search` | Search packages using natural language (hybrid semantic search) | Optional |
+| `lpm_search_owners` | Search for users or organizations by name | No |
+| `lpm_packages_by_owner` | List packages published by a specific user or org | No |
 | `lpm_marketplace_search` | Search marketplace by category or keyword | No |
+| `lpm_pool_stats` | Get your Pool revenue earnings for the current month | Yes |
 | `lpm_user_info` | Get authenticated user info, orgs, and usage | Yes |
 
 ## Tool Details
@@ -123,7 +121,18 @@ Get metadata for an LPM package including versions, description, downloads, and 
   "createdAt": "2024-01-15T10:30:00Z",
   "updatedAt": "2025-11-20T14:00:00Z",
   "dependencies": ["react", "react-dom"],
-  "readme": "# UI Kit\n\nA modern component library..."
+  "readme": "# UI Kit\n\nA modern component library...",
+  "distributionMode": "pool",
+  "accessInfo": {
+    "model": "pool",
+    "summary": "Included with Pool subscription ($12/mo)",
+    "actionRequired": false
+  },
+  "ai": {
+    "description": "Production-ready React component library with accessible primitives",
+    "capabilities": ["UI components", "Accessibility", "Theming"],
+    "tags": ["react", "components", "a11y"]
+  }
 }
 ```
 
@@ -178,7 +187,7 @@ Get your Pool revenue sharing earnings estimate for the current month. Shows per
 ```json
 {
   "billingPeriod": "2026-02",
-  "authorPoolCents": 144000,
+  "totalWeightedDownloads": 5000,
   "estimatedEarningsCents": 2450,
   "packages": [
     {
@@ -192,20 +201,36 @@ Get your Pool revenue sharing earnings estimate for the current month. Shows per
 }
 ```
 
-### lpm_marketplace_earnings
+### lpm_search_owners
 
-Get your Marketplace revenue summary including total sales, gross revenue, platform fees, and net revenue.
+Search for users or organizations on the LPM registry by name or username.
 
-**Parameters:** None
+**Parameters:**
+- `query` (string, required) — Name or username to search for
+- `limit` (number, optional) — Max results, 1-10 (default: 5)
 
 **Example response:**
-```json
-{
-  "totalSales": 12,
-  "grossRevenueCents": 15000,
-  "platformFeesCents": 1500,
-  "netRevenueCents": 13500
-}
+```
+Found 2 profiles:
+
+- @alice (Alice Smith) [user] — Full-stack developer
+- @acme (Acme Corp) [org] — Open source tools for developers
+```
+
+### lpm_packages_by_owner
+
+List packages published by a specific user or organization. Shows only public (pool/marketplace) packages.
+
+**Parameters:**
+- `owner` (string, required) — Username or organization slug
+- `limit` (number, optional) — Max results, 1-50 (default: 10)
+
+**Example response:**
+```
+Found 2 packages by alice:
+
+- alice.ui-kit [pool] — A modern UI component kit for React (5,400 downloads)
+- alice.form-validator [marketplace] — Form validation utilities (1,200 downloads)
 ```
 
 ### lpm_marketplace_search
@@ -274,9 +299,11 @@ Responses are cached in memory to reduce API calls:
 | `lpm_package_info` | 5 minutes |
 | `lpm_quality_report` | 5 minutes |
 | `lpm_check_name` | No cache (real-time) |
-| `lpm_pool_stats` | 1 hour |
-| `lpm_marketplace_earnings` | 1 hour |
+| `lpm_search` | 5 minutes |
+| `lpm_search_owners` | 5 minutes |
+| `lpm_packages_by_owner` | 5 minutes |
 | `lpm_marketplace_search` | 1 hour |
+| `lpm_pool_stats` | 1 hour |
 | `lpm_user_info` | 5 minutes |
 
 Cache is in-memory only and resets when the server restarts.
