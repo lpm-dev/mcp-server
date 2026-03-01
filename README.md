@@ -1,6 +1,6 @@
 # @lpm-registry/mcp-server
 
-MCP (Model Context Protocol) server for the [LPM](https://lpm.dev) package registry. Gives AI tools like Claude Code, Cursor, and other MCP-compatible agents access to package info, quality reports, name checks, owner/package search, pool earnings, and marketplace search.
+MCP (Model Context Protocol) server for the [LPM](https://lpm.dev) package registry. Gives AI tools like Claude Code, Cursor, and other MCP-compatible agents access to search, browse source code, install packages, check quality, and more.
 
 ## Quick Setup
 
@@ -90,21 +90,58 @@ export LPM_REGISTRY_URL=https://your-registry.dev
 
 | Tool | Description | Auth Required |
 |------|-------------|---------------|
-| `lpm_package_info` | Get package metadata, AI analysis, access model, and readme | Optional |
-| `lpm_quality_report` | Get quality score and 27-check breakdown | Optional |
-| `lpm_check_name` | Check if a package name is available | Yes |
 | `lpm_search` | Search packages using natural language (hybrid semantic search) | Optional |
+| `lpm_package_info` | Get package metadata, install method, access model, and readme | Optional |
+| `lpm_browse_source` | Browse package source code — file tree and file contents | Yes |
+| `lpm_add` | Add a package by extracting source files into the project | Yes |
+| `lpm_install` | Install a package as a dependency to node_modules | Yes |
+| `lpm_get_install_command` | Get the correct CLI command (`lpm add` vs `lpm install`) | Optional |
+| `lpm_quality_report` | Get quality score and 27-check breakdown | Optional |
 | `lpm_search_owners` | Search for users or organizations by name | No |
 | `lpm_packages_by_owner` | List packages published by a specific user or org | No |
 | `lpm_marketplace_search` | Search marketplace by category or keyword | No |
 | `lpm_pool_stats` | Get your Pool revenue earnings for the current month | Yes |
 | `lpm_user_info` | Get authenticated user info, orgs, and usage | Yes |
 
+## AI Workflow
+
+A typical AI agent workflow for finding and adding a package:
+
+1. **Search** — `lpm_search` to find packages matching the need
+2. **Inspect** — `lpm_package_info` to check the install method, access model, and readme
+3. **Browse** — `lpm_browse_source` (tree first, then specific files) to understand code structure
+4. **Install** — `lpm_add` for components/blocks/Swift or `lpm_install` for dependencies
+
+The `lpm_package_info` response includes `installMethod.command` (`lpm add` or `lpm install`) so agents know which tool to use.
+
+### Access Control
+
+- **Pool packages** require a Pool subscription ($12/mo). Without one, `lpm_browse_source`, `lpm_add`, and `lpm_install` return an error with subscription info.
+- **Marketplace packages** require a license purchase. Errors include a link to the package page.
+- **Public metadata** (`lpm_package_info`, `lpm_search`, `lpm_quality_report`) works without auth for public packages.
+
 ## Tool Details
+
+### lpm_search
+
+Search LPM packages using natural language. Uses hybrid keyword + semantic search.
+
+**Parameters:**
+- `query` (string, required) — Natural language search query (e.g., "validate user input", "react component library")
+- `ecosystem` (enum, optional) — Filter by ecosystem: `js`, `swift`, or `xcframework`
+- `limit` (number, optional) — Max results, 1-20 (default: 10)
+
+**Example response:**
+```
+Found 2 packages:
+
+- alice.ui-kit [component] — React UI components (5,000 downloads)
+- bob.form-builder — Form builder library (1,200 downloads)
+```
 
 ### lpm_package_info
 
-Get metadata for an LPM package including versions, description, downloads, and readme.
+Get metadata for an LPM package including versions, description, downloads, install method, access status, and readme.
 
 **Parameters:**
 - `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
@@ -114,6 +151,7 @@ Get metadata for an LPM package including versions, description, downloads, and 
 {
   "name": "@lpm.dev/alice.ui-kit",
   "description": "A modern UI component kit for React",
+  "ecosystem": "js",
   "latestVersion": "2.1.0",
   "totalVersions": 12,
   "versions": ["2.1.0", "2.0.0", "1.9.0"],
@@ -123,16 +161,110 @@ Get metadata for an LPM package including versions, description, downloads, and 
   "dependencies": ["react", "react-dom"],
   "readme": "# UI Kit\n\nA modern component library...",
   "distributionMode": "pool",
+  "hasAccess": true,
+  "installMethod": {
+    "command": "lpm add",
+    "description": "Extracts source files into your project for customization."
+  },
   "accessInfo": {
     "model": "pool",
     "summary": "Included with Pool subscription ($12/mo)",
     "actionRequired": false
-  },
-  "ai": {
-    "description": "Production-ready React component library with accessible primitives",
-    "capabilities": ["UI components", "Accessibility", "Theming"],
-    "tags": ["react", "components", "a11y"]
   }
+}
+```
+
+### lpm_browse_source
+
+Browse source code of an LPM package you have access to. Call without `path` to get the file tree, then request specific files or directories.
+
+**Parameters:**
+- `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
+- `version` (string, optional) — Specific version to browse (defaults to latest)
+- `path` (string, optional) — File or directory path (e.g., `src/index.js` or `src`). Omit for tree only.
+
+**Example response (tree only):**
+```json
+{
+  "package": "alice.ui-kit",
+  "version": "2.0.0",
+  "ecosystem": "js",
+  "tree": ["src/index.js", "src/button.jsx", "src/input.jsx", "package.json"]
+}
+```
+
+**Example response (with path):**
+```json
+{
+  "package": "alice.ui-kit",
+  "version": "2.0.0",
+  "ecosystem": "js",
+  "tree": ["src/index.js", "src/button.jsx", "src/input.jsx", "package.json"],
+  "files": [
+    { "path": "src/button.jsx", "content": "export function Button() { ... }" }
+  ]
+}
+```
+
+### lpm_add
+
+Add an LPM package to the project by extracting source files for customization. Use for UI components, blocks, templates, Swift packages, and MCP servers. Requires LPM CLI installed locally.
+
+**Parameters:**
+- `name` (string, required) — Package name
+- `version` (string, optional) — Specific version (defaults to latest)
+- `path` (string, optional) — Target directory (e.g., `src/components/ui`)
+- `alias` (string, optional) — Import alias prefix (e.g., `@/components/ui`)
+- `target` (string, optional) — Swift SPM target name
+- `force` (boolean, optional) — Overwrite existing files
+- `installDeps` (boolean, optional) — Auto-install npm deps (default: true)
+- `config` (object, optional) — Config schema params (e.g., `{ "styling": "panda" }`)
+
+**Example response:**
+```json
+{
+  "success": true,
+  "package": { "name": "@lpm.dev/alice.ui-kit", "version": "2.0.0" },
+  "installPath": "src/components/ui",
+  "files": [
+    { "dest": "src/components/ui/button.jsx", "action": "created" },
+    { "dest": "src/components/ui/input.jsx", "action": "created" }
+  ],
+  "dependencies": { "npm": ["react"], "lpm": [] }
+}
+```
+
+### lpm_install
+
+Install an LPM package as a dependency to node_modules (like npm install). Use for JS libraries, utilities, and SDKs. Requires LPM CLI installed locally.
+
+**Parameters:**
+- `name` (string, required) — Package name
+- `version` (string, optional) — Specific version (defaults to latest)
+
+**Example response:**
+```json
+{
+  "success": true,
+  "packages": [{ "name": "@lpm.dev/bob.validate" }],
+  "npmOutput": "added 1 package in 1s"
+}
+```
+
+### lpm_get_install_command
+
+Get the correct CLI command to install an LPM package. Returns `lpm add` (source extraction) or `lpm install` (node_modules) based on the package type and ecosystem.
+
+**Parameters:**
+- `name` (string, required) — Package name
+- `version` (string, optional) — Specific version
+
+**Example response:**
+```json
+{
+  "command": "lpm add @lpm.dev/alice.ui-kit",
+  "method": "add",
+  "explanation": "Extracts source files into your project for customization."
 }
 ```
 
@@ -156,47 +288,6 @@ Get the quality score and detailed check breakdown for an LPM package. Covers 27
   ],
   "checks": [
     { "id": "has-readme", "passed": true, "points": 10, "maxPoints": 10 }
-  ]
-}
-```
-
-### lpm_check_name
-
-Check if a package name is available on the LPM registry. Requires authentication to prevent anonymous enumeration.
-
-**Parameters:**
-- `name` (string, required) — Package name to check in `owner.package-name` format
-
-**Example response:**
-```json
-{
-  "name": "@lpm.dev/alice.new-package",
-  "available": true,
-  "ownerExists": true,
-  "ownerType": "user"
-}
-```
-
-### lpm_pool_stats
-
-Get your Pool revenue sharing earnings estimate for the current month. Shows per-package breakdown with installs, weighted downloads, share percentage, and estimated earnings.
-
-**Parameters:** None
-
-**Example response:**
-```json
-{
-  "billingPeriod": "2026-02",
-  "totalWeightedDownloads": 5000,
-  "estimatedEarningsCents": 2450,
-  "packages": [
-    {
-      "name": "@lpm.dev/alice.my-utils",
-      "installCount": 120,
-      "weightedDownloads": 3200,
-      "sharePercentage": 1.85,
-      "estimatedEarningsCents": 1800
-    }
   ]
 }
 ```
@@ -240,6 +331,7 @@ Search the LPM marketplace for packages by category or keyword. Returns pricing,
 **Parameters:**
 - `query` (string, optional) — Search keyword
 - `category` (string, optional) — Category filter (e.g., `ui-components`)
+- `ecosystem` (enum, optional) — Filter by ecosystem: `js`, `swift`, or `xcframework`
 - `limit` (number, optional) — Max results, 1-50 (default: 10)
 
 At least one of `query` or `category` is required.
@@ -265,6 +357,30 @@ At least one of `query` or `category` is required.
     "total": 15,
     "priceRange": { "minCents": 499, "maxCents": 9999, "medianCents": 1999 }
   }
+}
+```
+
+### lpm_pool_stats
+
+Get your Pool revenue sharing earnings estimate for the current month. Shows per-package breakdown with installs, weighted downloads, share percentage, and estimated earnings.
+
+**Parameters:** None
+
+**Example response:**
+```json
+{
+  "billingPeriod": "2026-02",
+  "totalWeightedDownloads": 5000,
+  "estimatedEarningsCents": 2450,
+  "packages": [
+    {
+      "name": "@lpm.dev/alice.my-utils",
+      "installCount": 120,
+      "weightedDownloads": 3200,
+      "sharePercentage": 1.85,
+      "estimatedEarningsCents": 1800
+    }
+  ]
 }
 ```
 
@@ -296,15 +412,18 @@ Responses are cached in memory to reduce API calls:
 
 | Tool | Cache TTL |
 |------|-----------|
-| `lpm_package_info` | 5 minutes |
-| `lpm_quality_report` | 5 minutes |
-| `lpm_check_name` | No cache (real-time) |
 | `lpm_search` | 5 minutes |
+| `lpm_package_info` | 5 minutes |
+| `lpm_browse_source` | 5 minutes |
+| `lpm_get_install_command` | 5 minutes |
+| `lpm_quality_report` | 5 minutes |
 | `lpm_search_owners` | 5 minutes |
 | `lpm_packages_by_owner` | 5 minutes |
 | `lpm_marketplace_search` | 1 hour |
 | `lpm_pool_stats` | 1 hour |
 | `lpm_user_info` | 5 minutes |
+| `lpm_add` | No cache |
+| `lpm_install` | No cache |
 
 Cache is in-memory only and resets when the server restarts.
 
@@ -312,6 +431,9 @@ Cache is in-memory only and resets when the server restarts.
 
 **"No LPM token found"**
 Set the `LPM_TOKEN` environment variable in your MCP client configuration, or run `lpm login` first.
+
+**"Authentication required"**
+Some tools (`lpm_browse_source`, `lpm_add`, `lpm_install`) require authentication. Run `lpm login` or set `LPM_TOKEN`.
 
 **"Authentication failed"**
 Your token may be expired or revoked. Generate a new token at https://lpm.dev/dashboard/tokens or run `lpm login`.
@@ -321,3 +443,12 @@ Check your internet connection. If you're behind a proxy, ensure it allows HTTPS
 
 **"Package not found"**
 Verify the package name format: `owner.package-name` (e.g., `alice.ui-kit`).
+
+**"Rate limit exceeded"**
+Source browsing is rate limited to 10 requests per minute. Wait and retry.
+
+**"Source browsing is currently disabled"**
+The registry has temporarily disabled source browsing. Try again later.
+
+**"Response was truncated"**
+Use the `path` parameter with `lpm_browse_source` to request specific files or directories instead of the entire package.
