@@ -96,6 +96,9 @@ For local development, copy `.env.example` to `.env.local` and set your local re
 | ------------------------- | --------------------------------------------------------------- | ------------- |
 | `lpm_search`              | Search packages with natural language or structured filters     | Optional      |
 | `lpm_package_info`        | Get package metadata, install method, access model, and readme  | Optional      |
+| `lpm_api_docs`            | Get structured API docs — functions, classes, types, signatures | Optional      |
+| `lpm_llm_context`         | Get LLM-optimized usage guide — quickStart, patterns, gotchas   | Optional      |
+| `lpm_package_context`     | Get complete package context in one call — metadata, API docs, and usage guide | Optional |
 | `lpm_browse_source`       | Browse package source code — file tree and file contents        | Yes           |
 | `lpm_add`                 | Add a package by extracting source files into the project       | Yes           |
 | `lpm_install`             | Install a package as a dependency to node_modules               | Yes           |
@@ -111,11 +114,13 @@ For local development, copy `.env.example` to `.env.local` and set your local re
 A typical AI agent workflow for finding and adding a package:
 
 1. **Search** — `lpm_search` to find packages matching the need
-2. **Inspect** — `lpm_package_info` to check the install method, access model, and readme
-3. **Browse** — `lpm_browse_source` (tree first, then specific files) to understand code structure
+2. **Understand** — `lpm_package_context` to get everything in one call: metadata, API docs, and usage guide
+3. **Browse** — `lpm_browse_source` (tree first, then specific files) for deeper code understanding if needed
 4. **Install** — `lpm_add` for components/blocks/Swift or `lpm_install` for dependencies
 
-The `lpm_package_info` response includes `installMethod.command` (`lpm add` or `lpm install`) so agents know which tool to use.
+The `lpm_package_context` response includes `package.installMethod.command` (`lpm add` or `lpm install`) so agents know which tool to use.
+
+> **Tip:** Use `lpm_package_context` as the default. Fall back to individual tools (`lpm_package_info`, `lpm_api_docs`, `lpm_llm_context`) only when you need the full readme or want to re-check a single aspect.
 
 ### Access Control
 
@@ -191,6 +196,205 @@ Get metadata for an LPM package including versions, description, downloads, inst
   }
 }
 ```
+
+### lpm_api_docs
+
+Get structured API documentation for an LPM package. Returns functions, classes, interfaces, type aliases, enums, and variables with full signatures, parameter types, return types, and descriptions. Use this to understand how to use a package before installing it.
+
+API docs are auto-generated during publish from TypeScript definitions, AI analysis, or JSDoc annotations.
+
+**Parameters:**
+
+- `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
+- `version` (string, optional) — Specific version to get docs for (defaults to latest)
+
+**Example response:**
+
+```json
+{
+  "name": "@lpm.dev/alice.ui-kit",
+  "version": "2.1.0",
+  "available": true,
+  "docsStatus": "extracted",
+  "apiDocs": {
+    "version": 1,
+    "strategy": "typescript",
+    "entryPoint": "dist/index.d.ts",
+    "modules": [
+      {
+        "path": "index",
+        "functions": [
+          {
+            "name": "createTheme",
+            "description": "Create a custom theme configuration",
+            "signatures": [
+              {
+                "params": [
+                  { "name": "options", "type": "ThemeOptions", "optional": true }
+                ],
+                "returnType": "Theme",
+                "typeParams": []
+              }
+            ]
+          }
+        ],
+        "interfaces": [
+          {
+            "name": "ThemeOptions",
+            "description": "Configuration for theme creation",
+            "properties": [
+              { "name": "colors", "type": "ColorPalette", "optional": true },
+              { "name": "spacing", "type": "SpacingScale", "optional": true }
+            ]
+          }
+        ],
+        "classes": [],
+        "typeAliases": [],
+        "enums": [],
+        "variables": []
+      }
+    ],
+    "stats": {
+      "functionCount": 5,
+      "classCount": 2,
+      "interfaceCount": 8,
+      "totalExports": 18
+    }
+  }
+}
+```
+
+**When docs aren't available:**
+
+```json
+{
+  "name": "@lpm.dev/bob.utils",
+  "version": "1.0.0",
+  "available": false,
+  "docsStatus": "pending",
+  "message": "API docs are being generated. Try again in a few minutes."
+}
+```
+
+### lpm_llm_context
+
+Get an LLM-optimized usage guide for an LPM package. Returns a concise cheat sheet with purpose, quickStart code, key exports with signatures, common usage patterns, gotchas, and guidance on when to use the package. Use this to quickly understand how to write correct code with a package.
+
+LLM context is auto-generated during publish using AI analysis of the package's API docs, source code, and readme.
+
+**Parameters:**
+
+- `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
+- `version` (string, optional) — Specific version to get context for (defaults to latest)
+
+**Example response:**
+
+```json
+{
+  "name": "@lpm.dev/alice.ui-kit",
+  "version": "2.1.0",
+  "available": true,
+  "llmContextStatus": "extracted",
+  "llmContext": {
+    "version": 1,
+    "purpose": "React UI component library with theme support and accessibility built-in",
+    "quickStart": "import { Button, Input } from '@lpm.dev/alice.ui-kit'\n\n<Button variant=\"primary\">Click me</Button>",
+    "keyExports": [
+      {
+        "name": "Button",
+        "kind": "component",
+        "signature": "(props: ButtonProps) => JSX.Element",
+        "description": "Primary button component with variants and loading state"
+      },
+      {
+        "name": "createTheme",
+        "kind": "function",
+        "signature": "(options?: ThemeOptions) => Theme",
+        "description": "Create a custom theme configuration"
+      }
+    ],
+    "commonPatterns": [
+      {
+        "title": "Basic button with loading state",
+        "code": "<Button isLoading={isPending} onClick={handleSubmit}>Save</Button>",
+        "description": "Use isLoading prop to show spinner during async operations"
+      }
+    ],
+    "gotchas": [
+      "Requires React 18+ as peer dependency",
+      "Theme must be wrapped in ThemeProvider at app root"
+    ],
+    "whenToUse": "Building React apps that need consistent, accessible UI components with theme support",
+    "whenNotToUse": "Server-rendered pages without React, or when you need only a single component"
+  }
+}
+```
+
+**When context isn't available:**
+
+```json
+{
+  "name": "@lpm.dev/bob.utils",
+  "version": "1.0.0",
+  "available": false,
+  "llmContextStatus": "pending",
+  "message": "LLM context is being generated. Try again in a few minutes."
+}
+```
+
+### lpm_package_context
+
+Get complete context for an LPM package in a single call. Combines condensed package metadata, structured API documentation, and LLM-optimized usage guide. This is the recommended tool when you need to understand a package before using it.
+
+Internally makes 3 parallel API calls. If API docs or LLM context aren't available yet (still being generated), they are omitted from the response. Only fails if the package itself is not found or inaccessible.
+
+**Parameters:**
+
+- `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
+- `version` (string, optional) — Specific version to get context for (defaults to latest)
+
+**Example response (all available):**
+
+```json
+{
+  "package": {
+    "name": "@lpm.dev/alice.ui-kit",
+    "description": "A modern UI component kit for React",
+    "ecosystem": "js",
+    "latestVersion": "2.1.0",
+    "license": "MIT",
+    "dependencies": ["react", "react-dom"],
+    "peerDependencies": [],
+    "installMethod": {
+      "command": "lpm add",
+      "description": "Extracts source files into your project for customization"
+    },
+    "distributionMode": "pool",
+    "readme": "# UI Kit\n\nA modern component library for building..."
+  },
+  "apiDocs": {
+    "version": 1,
+    "strategy": "typescript",
+    "modules": [
+      {
+        "path": "index",
+        "functions": [{ "name": "createTheme", "description": "Create a custom theme" }]
+      }
+    ]
+  },
+  "llmContext": {
+    "version": 1,
+    "purpose": "React UI component library with theme support",
+    "quickStart": "import { Button } from '@lpm.dev/alice.ui-kit'",
+    "keyExports": [{ "name": "Button", "kind": "component" }],
+    "commonPatterns": [],
+    "gotchas": ["Requires React 18+"],
+    "whenToUse": "Building React apps with consistent UI"
+  }
+}
+```
+
+When API docs or LLM context aren't available, those keys are simply omitted. Only the `package` key is always present. The readme is truncated to ~500 characters — use `lpm_package_info` for the full readme.
 
 ### lpm_browse_source
 
@@ -411,6 +615,9 @@ Responses are cached in memory to reduce API calls:
 | ------------------------- | --------- |
 | `lpm_search`              | 5 minutes |
 | `lpm_package_info`        | 5 minutes |
+| `lpm_api_docs`            | 5 minutes |
+| `lpm_llm_context`         | 5 minutes |
+| `lpm_package_context`     | 5 minutes |
 | `lpm_browse_source`       | 5 minutes |
 | `lpm_get_install_command` | 5 minutes |
 | `lpm_quality_report`      | 5 minutes |
