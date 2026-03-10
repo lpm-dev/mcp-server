@@ -103,9 +103,10 @@ For local development, copy `.env.example` to `.env.local` and set your local re
 | `lpm_add`                 | Add a package by extracting source files into the project       | Yes           |
 | `lpm_install`             | Install a package as a dependency to node_modules               | Yes           |
 | `lpm_get_install_command` | Get the correct CLI command (`lpm add` vs `lpm install`)        | Optional      |
-| `lpm_quality_report`      | Get quality score and 27-check breakdown                        | Optional      |
+| `lpm_quality_report`      | Get quality score and 28-check breakdown                        | Optional      |
 | `lpm_search_owners`       | Search for users or organizations by name                       | No            |
 | `lpm_packages_by_owner`   | List packages published by a specific user or org               | No            |
+| `lpm_package_skills`      | Fetch Agent Skills for a package                                | Optional      |
 | `lpm_pool_stats`          | Get your Pool revenue earnings for the current month            | Yes           |
 | `lpm_user_info`           | Get authenticated user info, orgs, and usage                    | Yes           |
 
@@ -121,6 +122,8 @@ A typical AI agent workflow for finding and adding a package:
 The `lpm_package_context` response includes `package.installMethod.command` (`lpm add` or `lpm install`) so agents know which tool to use.
 
 > **Tip:** Use `lpm_package_context` as the default. Fall back to individual tools (`lpm_package_info`, `lpm_api_docs`, `lpm_llm_context`) only when you need the full readme or want to re-check a single aspect.
+
+> **Version resolution:** Version-sensitive tools (`lpm_api_docs`, `lpm_llm_context`, `lpm_package_context`, `lpm_package_skills`, `lpm_browse_source`) resolve the version from the local project's package.json dependencies when no explicit version is specified. This ensures you get docs matching the version you actually have installed.
 
 ### Access Control
 
@@ -344,9 +347,9 @@ LLM context is auto-generated during publish using AI analysis of the package's 
 
 ### lpm_package_context
 
-Get complete context for an LPM package in a single call. Combines condensed package metadata, structured API documentation, and LLM-optimized usage guide. This is the recommended tool when you need to understand a package before using it.
+Get complete context for an LPM package in a single call. Combines condensed package metadata, structured API documentation, LLM-optimized usage guide, and Agent Skills. This is the recommended tool when you need to understand a package before using it.
 
-Internally makes 3 parallel API calls. If API docs or LLM context aren't available yet (still being generated), they are omitted from the response. Only fails if the package itself is not found or inaccessible.
+Internally makes 4 parallel API calls. If API docs or LLM context aren't available yet (still being generated), they are omitted from the response. Only fails if the package itself is not found or inaccessible.
 
 **Parameters:**
 
@@ -394,7 +397,33 @@ Internally makes 3 parallel API calls. If API docs or LLM context aren't availab
 }
 ```
 
-When API docs or LLM context aren't available, those keys are simply omitted. Only the `package` key is always present. The readme is truncated to ~500 characters — use `lpm_package_info` for the full readme.
+When API docs, LLM context, or skills aren't available, those keys are simply omitted. Only the `package` key is always present. The readme is truncated to ~500 characters — use `lpm_package_info` for the full readme.
+
+### lpm_package_skills
+
+Fetch Agent Skills for an LPM package. Returns approved skills with their name, description, applicable file globs, and content. Skills are markdown files that provide workflow-specific instructions for AI coding assistants.
+
+**Parameters:**
+
+- `name` (string, required) — Package name in `owner.package-name` or `@lpm.dev/owner.package-name` format
+- `version` (string, optional) — Specific version to get skills for (defaults to latest)
+
+**Example response:**
+
+```json
+{
+  "name": "@lpm.dev/alice.ui-kit",
+  "version": "2.1.0",
+  "skills": [
+    {
+      "name": "theming",
+      "description": "How to create and apply custom themes",
+      "globs": ["**/*.theme.*", "**/*.styles.*"],
+      "content": "# Theming\n\nWhen creating a custom theme..."
+    }
+  ]
+}
+```
 
 ### lpm_browse_source
 
@@ -501,7 +530,7 @@ Get the correct CLI command to install an LPM package. Returns `lpm add` (source
 
 ### lpm_quality_report
 
-Get the quality score and detailed check breakdown for an LPM package. Covers 27 checks across documentation, code quality, testing, and maintenance health.
+Get the quality score and detailed check breakdown for an LPM package. Covers 28 checks across documentation, code quality, testing, and maintenance health.
 
 **Parameters:**
 
@@ -618,6 +647,7 @@ Responses are cached in memory to reduce API calls:
 | `lpm_api_docs`            | 5 minutes |
 | `lpm_llm_context`         | 5 minutes |
 | `lpm_package_context`     | 5 minutes |
+| `lpm_package_skills`      | 5 minutes |
 | `lpm_browse_source`       | 5 minutes |
 | `lpm_get_install_command` | 5 minutes |
 | `lpm_quality_report`      | 5 minutes |
