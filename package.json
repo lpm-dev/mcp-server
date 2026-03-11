@@ -1,6 +1,6 @@
 {
 	"name": "@lpm-registry/mcp-server",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "MCP server for the LPM package registry — exposes package info, quality reports, name checks, pool stats, and marketplace search as AI tools",
 	"author": "LPM <hello@lpm.dev> (https://lpm.dev)",
 	"repository": {
