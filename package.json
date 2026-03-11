@@ -3,6 +3,10 @@
 	"version": "0.1.0",
 	"description": "MCP server for the LPM package registry — exposes package info, quality reports, name checks, pool stats, and marketplace search as AI tools",
 	"author": "LPM <hello@lpm.dev> (https://lpm.dev)",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lpm-dev/mcp-server"
+	},
 	"homepage": "https://lpm.dev",
 	"license": "ISC",
 	"keywords": [
@@ -23,6 +27,7 @@
 	"files": [
 		"bin",
 		"lib",
+		"!lib/__tests__",
 		"README.md"
 	],
 	"scripts": {
