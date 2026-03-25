@@ -98,15 +98,17 @@ For local development, copy `.env.example` to `.env.local` and set your local re
 | `lpm_package_info`        | Get package metadata, install method, access model, and readme  | Optional      |
 | `lpm_api_docs`            | Get structured API docs — functions, classes, types, signatures | Optional      |
 | `lpm_llm_context`         | Get LLM-optimized usage guide — quickStart, patterns, gotchas   | Optional      |
-| `lpm_package_context`     | Get complete package context in one call — metadata, API docs, and usage guide | Optional |
-| `lpm_browse_source`       | Browse package source code — file tree and file contents        | Yes           |
+| `lpm_package_context`     | Get complete package context in one call (pre-install evaluation) | Optional    |
+| `lpm_package_skills`      | Get Agent Skills for building with an installed package         | Optional      |
+| `lpm_docs`                | Search or read LPM documentation (setup, CLI, publishing, etc.) | No           |
+| `lpm_browse_source`       | Browse package source code remotely (last resort)               | Yes           |
 | `lpm_add`                 | Add a package by extracting source files into the project       | Yes           |
-| `lpm_install`             | Install a package as a dependency to node_modules               | Yes           |
-| `lpm_get_install_command` | Get the correct CLI command (`lpm add` vs `lpm install`)        | Optional      |
+| `lpm_install`             | Install a managed dependency (JS → node_modules, Swift → Package.swift) | Yes  |
+| `lpm_audit`               | Security audit — behavioral tags, AI findings, quality scores   | Yes           |
+| `lpm_marketplace_info`    | Marketplace pricing, licensing, and seat management             | Optional      |
 | `lpm_quality_report`      | Get quality score and 28-check breakdown                        | Optional      |
 | `lpm_search_owners`       | Search for users or organizations by name                       | No            |
 | `lpm_packages_by_owner`   | List packages published by a specific user or org               | No            |
-| `lpm_package_skills`      | Fetch Agent Skills for a package                                | Optional      |
 | `lpm_pool_stats`          | Get your Pool revenue earnings for the current month            | Yes           |
 | `lpm_user_info`           | Get authenticated user info, orgs, and usage                    | Yes           |
 
@@ -115,13 +117,13 @@ For local development, copy `.env.example` to `.env.local` and set your local re
 A typical AI agent workflow for finding and adding a package:
 
 1. **Search** — `lpm_search` to find packages matching the need
-2. **Understand** — `lpm_package_context` to get everything in one call: metadata, API docs, and usage guide
-3. **Browse** — `lpm_browse_source` (tree first, then specific files) for deeper code understanding if needed
-4. **Install** — `lpm_add` for components/blocks/Swift or `lpm_install` for dependencies
+2. **Evaluate** — `lpm_package_context` to understand the package before installing (metadata, API docs, usage guide)
+3. **Install** — `lpm_install` for managed dependencies (JS + Swift) or `lpm_add` for source components
+4. **Build** — `lpm_package_skills` for usage patterns, then read local files directly
 
 The `lpm_package_context` response includes `package.installMethod.command` (`lpm add` or `lpm install`) so agents know which tool to use.
 
-> **Tip:** Use `lpm_package_context` as the default. Fall back to individual tools (`lpm_package_info`, `lpm_api_docs`, `lpm_llm_context`) only when you need the full readme or want to re-check a single aspect.
+> **Tip:** After installing, prefer reading local files over `lpm_browse_source`. Local reads are faster and don't hit the server. Use `lpm_browse_source` only when evaluating a package you can't install (e.g., checking before purchase).
 
 > **Version resolution:** Version-sensitive tools (`lpm_api_docs`, `lpm_llm_context`, `lpm_package_context`, `lpm_package_skills`, `lpm_browse_source`) resolve the version from the local project's package.json dependencies when no explicit version is specified. This ensures you get docs matching the version you actually have installed.
 
@@ -462,7 +464,7 @@ Browse source code of an LPM package you have access to. Call without `path` to 
 
 ### lpm_add
 
-Add an LPM package to the project by extracting source files for customization. Use for UI components, blocks, templates, Swift packages, and MCP servers. Requires LPM CLI installed locally.
+Add an LPM package to the project by extracting source files for customization. Use for UI components, blocks, templates, and MCP servers. Requires LPM CLI installed locally.
 
 **Parameters:**
 
@@ -492,7 +494,7 @@ Add an LPM package to the project by extracting source files for customization. 
 
 ### lpm_install
 
-Install an LPM package as a dependency to node_modules (like npm install). Use for JS libraries, utilities, and SDKs. Requires LPM CLI installed locally.
+Install an LPM package as a managed dependency. JS packages go to node_modules, Swift packages edit Package.swift via SE-0292. Requires LPM CLI installed locally.
 
 **Parameters:**
 
@@ -509,24 +511,69 @@ Install an LPM package as a dependency to node_modules (like npm install). Use f
 }
 ```
 
-### lpm_get_install_command
+### lpm_audit
 
-Get the correct CLI command to install an LPM package. Returns `lpm add` (source extraction) or `lpm install` (node_modules) based on the package type and ecosystem.
+Run a security audit on the project's LPM dependencies. Returns behavioral tags (eval, childProcess, shell), AI security findings, quality scores, and lifecycle scripts.
 
 **Parameters:**
 
-- `name` (string, required) — Package name
-- `version` (string, optional) — Specific version
+- `path` (string, optional) — Project directory to audit (defaults to current directory)
 
 **Example response:**
 
 ```json
 {
-  "command": "lpm add @lpm.dev/alice.ui-kit",
-  "method": "add",
-  "explanation": "Extracts source files into your project for customization."
+  "success": true,
+  "totalPackages": 3,
+  "packagesWithIssues": 1,
+  "packages": [
+    {
+      "name": "@lpm.dev/alice.ui-kit",
+      "version": "2.0.0",
+      "qualityScore": 85,
+      "issues": []
+    },
+    {
+      "name": "@lpm.dev/bob.exec-tool",
+      "version": "1.0.0",
+      "qualityScore": 45,
+      "issues": ["uses child_process", "[moderate] Executes shell commands with user input"]
+    }
+  ]
 }
 ```
+
+### lpm_marketplace_info
+
+Get marketplace information for an LPM package — pricing, licensing, seat management, and purchase status.
+
+**Parameters:**
+
+- `name` (string, required) — Package name
+
+**Example response:**
+
+```json
+{
+  "name": "@lpm.dev/acme.pro-suite",
+  "isMarketplace": true,
+  "distributionMode": "marketplace",
+  "pricing": { "monthlyPriceCents": 2900, "yearlyPriceCents": 29000 },
+  "licenseType": "per-seat",
+  "accessInfo": { "hasLicense": true, "seatsUsed": 3, "seatsTotal": 5 }
+}
+```
+
+### lpm_docs
+
+Search or read LPM documentation. Use when the user asks how to use LPM itself.
+
+**Parameters:**
+
+- `page` (string, optional) — Doc page slug (e.g., `cli/commands`, `packages/swift-registry`)
+- `query` (string, optional) — Search query (e.g., `npmrc`, `CI deployment`)
+
+Without parameters: returns the full docs index.
 
 ### lpm_quality_report
 
@@ -649,12 +696,14 @@ Responses are cached in memory to reduce API calls:
 | `lpm_package_context`     | 5 minutes |
 | `lpm_package_skills`      | 5 minutes |
 | `lpm_browse_source`       | 5 minutes |
-| `lpm_get_install_command` | 5 minutes |
+| `lpm_marketplace_info`    | 5 minutes |
+| `lpm_docs`                | 30 minutes |
 | `lpm_quality_report`      | 5 minutes |
 | `lpm_search_owners`       | 5 minutes |
 | `lpm_packages_by_owner`   | 5 minutes |
 | `lpm_pool_stats`          | 1 hour    |
 | `lpm_user_info`           | 5 minutes |
+| `lpm_audit`               | No cache  |
 | `lpm_add`                 | No cache  |
 | `lpm_install`             | No cache  |
 
