@@ -12,7 +12,9 @@ lpm mcp setup
 
 This auto-detects Claude Code, Cursor, VS Code, Claude Desktop, and Windsurf, then writes the correct config to each. Authentication is handled via `lpm login` (stored in your OS keychain) — no tokens in config files.
 
-If your CLI is configured to use a custom registry URL (for example local dev), `lpm mcp setup` automatically writes `LPM_REGISTRY_URL` into MCP config so editor-launched MCP processes hit the same registry.
+The generated command is `npx -y @lpm-registry/mcp-server@latest`. The `latest` dist-tag is resolved when the editor starts, so editor restarts pick up the current published MCP server release.
+
+For a custom registry, set `LPM_REGISTRY_URL` in the environment inherited by your editor or add it to the editor's MCP server environment configuration.
 
 ## Manual Setup
 
@@ -72,9 +74,9 @@ If you prefer manual configuration, add to your editor's MCP config:
 
 ## Authentication
 
-The server reads your token from the OS keychain (set by `lpm login`). No token in config files required.
+`LPM_TOKEN` has highest priority. When it is unset, the server reads the OS keychain entry created by `lpm login` for the effective registry URL. Credentials are registry-scoped, so hosted, local, and custom registries do not reuse one another's tokens.
 
-Alternatively, set the `LPM_TOKEN` environment variable for environments without keychain access:
+Set `LPM_TOKEN` explicitly for environments without keychain access:
 
 ```bash
 export LPM_TOKEN=lpm_your_token_here
