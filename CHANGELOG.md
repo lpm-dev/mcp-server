@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-11-08
+
+### Changed
+
+- **Keychain lookup matches LPM CLI** — The token is read from the registry-scoped account LPM CLI writes, `auth-token:<16 hex>` from SHA-256 of the registry URL without trailing slashes, then from the account earlier CLI releases used for a login made with a trailing slash. `LPM_TOKEN` still comes first. The unscoped `auth-token` account is no longer read, so sign in again with a current LPM CLI if the server finds no token
+- **Agent tools pass complete CLI reports through** — Reports keep every field the CLI returns, process failures come back with their output, and `lpm_audit` honors its project path
+- **The CLI decides access** — Tools no longer refuse anonymous calls before the CLI applies its own access rules
+- **Search takes filters alone** — `lpm_search` accepts the Free distribution and filter-only requests without a query
+- The server reports its package version to MCP clients instead of a fixed one
+
+### Fixed
+
+- **Executable discovery** — Absolute paths outside the project are scanned, the Windows npm native package resolves without a shell, and relative overrides are refused, including Windows paths without a drive or UNC share
+- A missing optional `keytar` module returns no token instead of failing, and keychain read errors give an actionable message without the token
+
 ## [0.2.0] - 2026-03-25
 
 ### Added
