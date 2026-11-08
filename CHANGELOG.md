@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Registry and docs responses have a size limit and a full timeout** — Bodies are read up to 10 MB, the CLI's output limit; a larger one is cancelled and the tool returns an error instead of parsing it. The 30-second timeout now runs until the body has been read, so a server that sends headers and then stalls no longer hangs the call. Documentation pages and the docs index use the same limits, and had no timeout before
+- **`lpm_browse_source` lists at most 2,000 paths** — A larger tree reports `treeTotal`, `treeTruncated` and a warning to list a directory with `path`, instead of passing up to 20,000 paths to the model
+
 ## [0.3.0] - 2026-11-08
 
 ### Changed
