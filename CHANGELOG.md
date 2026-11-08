@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Registry and docs responses are read within a size limit and timeouts.**
+  - A body over 50 MB is cancelled, and the tool returns an error instead of parsing it.
+  - A request may wait 30 seconds for headers and 30 seconds between chunks of its body, and a call takes at most 2 minutes, its retries included. A server that sends headers and then stalls no longer hangs the call, and a slow download that keeps arriving still finishes. A body read that ignores the abort signal, as some fetch replacements' do, still ends at the timeout.
+  - Documentation pages and the docs index use the same limits; they had no timeout before.
+- **Error responses keep their status.** A 401, 403 or 404 whose body breaks off, stalls or is too large is still reported as that status, without a retry.
+- **JSON bodies that start with a byte-order mark parse again**, as they did with `response.json()`.
+- **A long `Retry-After` is not waited on.** When a server asks to wait longer than the backoff allows (10 seconds), the call returns rate limited instead of sleeping.
+- **`lpm_docs` reports failed pages.** A search where no matching page could be read returns an error instead of an empty answer, and one where some failed names them after the pages it read.
+- **`lpm_browse_source` lists a long tree 2,000 paths at a time.**
+  - A larger tree comes with `treeTotal`, `treeOffset`, `treeTruncated`, and a `treeSummary` counting files by top-level entry; pass the new `treeOffset` argument for the next page, so every path can be reached. A summary of more than 100 entries says so.
+  - With `path`, a tree too large to list whole is scoped to that directory and names it in `treeScope`. A `path` with no paths under it lists the whole package and says so.
+  - Before, up to 20,000 paths went to the model at once.
+- **The session cache holds at most 500 entries**, dropping the least recently used. Its size must be a positive integer.
+
 ## [0.3.0] - 2026-11-08
 
 ### Changed
