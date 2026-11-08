@@ -6,8 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **Registry and docs responses have a size limit and a full timeout** — Bodies are read up to 10 MB, the CLI's output limit; a larger one is cancelled and the tool returns an error instead of parsing it. The 30-second timeout now runs until the body has been read, so a server that sends headers and then stalls no longer hangs the call. Documentation pages and the docs index use the same limits, and had no timeout before
-- **`lpm_browse_source` lists at most 2,000 paths** — A larger tree reports `treeTotal`, `treeTruncated` and a warning to list a directory with `path`, instead of passing up to 20,000 paths to the model
+- **Registry and docs responses are read within a size limit and timeouts.**
+  - A body over 50 MB is cancelled, and the tool returns an error instead of parsing it.
+  - A request may wait 30 seconds for headers and 30 seconds between chunks of its body, and take 2 minutes in all. A server that sends headers and then stalls no longer hangs the call, and a slow download that keeps arriving still finishes.
+  - Documentation pages and the docs index use the same limits; they had no timeout before.
+- **Error responses keep their status.** A 401, 403 or 404 whose body breaks off, stalls or is too large is still reported as that status, without a retry.
+- **JSON bodies that start with a byte-order mark parse again**, as they did with `response.json()`.
+- **A long `Retry-After` is not waited on.** When a server asks to wait longer than the backoff allows (10 seconds), the call returns rate limited instead of sleeping.
+- **`lpm_docs` reports a failure when no matching page could be read**, instead of an empty answer.
+- **`lpm_browse_source` lists at most 2,000 paths.**
+  - A larger tree comes with `treeTotal`, `treeTruncated`, and a `treeSummary` counting paths by top-level entry, instead of passing up to 20,000 paths to the model.
+  - With `path`, a tree too large to list shows the paths under that directory.
+- **The session cache holds at most 500 entries**, dropping the least recently used.
 
 ## [0.3.0] - 2026-11-08
 
