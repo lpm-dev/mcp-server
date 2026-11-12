@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-11-12
+
+### Fixed
+
+- **The LPM CLI installs the package again.** Since MCP SDK 1.32.2, `lpm mcp serve` in LPM CLI releases before 0.86.0 failed to install this package, with "cannot derive peer \"zod\"". The SDK takes zod as both a dependency and a peer, and this package's narrower range resolved a second zod, which the LPM CLI's linker refuses. This package now asks for zod with the SDK's range, `^3.25 || ^4.0`, and runs on zod 4, so those releases start the server and see that it is retired.
+
 ## [0.4.0] - 2026-11-12
 
 This is the last release. The LPM CLI serves MCP itself from version 0.86.0, as `lpm mcp serve`; run `lpm mcp setup` to move your editors to it.
