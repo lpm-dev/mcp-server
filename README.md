@@ -1,147 +1,47 @@
 # @lpm-registry/mcp-server
 
-MCP (Model Context Protocol) server for the [LPM](https://lpm.dev) package registry. Gives AI tools like Claude Code, Cursor, and other MCP-compatible agents access to search, browse source code, install packages, check quality, and more.
+**This package is retired and gets no more updates.**
+The LPM CLI serves MCP itself from version 0.86.0, as `lpm mcp serve`.
+It has the current LPM.dev Registry tools and tools that install, add, and audit packages in your projects.
 
-## Quick Setup
+## Move to `lpm mcp serve`
 
-If you have the [LPM CLI](https://lpm.dev/docs/cli) installed, one command configures all your editors:
+Upgrade the LPM CLI to 0.86.0 or later, for example with `lpm self-update`. Then point your editors at its server:
 
 ```bash
 lpm mcp setup
 ```
 
-This auto-detects Claude Code, Cursor, VS Code, Claude Desktop, and Windsurf, then writes the correct config to each. Authentication is handled via `lpm login` (stored in your OS keychain) — no tokens in config files.
+Restart your editors.
+`lpm mcp setup` writes the server entry named `lpm-registry`, the name earlier setups and this README used, so it replaces that entry.
+Remove an entry you named differently with `lpm mcp remove <name>`, and edit project files such as `.vscode/mcp.json` by hand.
+See [MCP servers](https://cli.lpm.dev/docs/reference/mcp-servers) in the LPM CLI documentation.
 
-The generated command is `npx -y @lpm-registry/mcp-server@latest`. The `latest` dist-tag is resolved when the editor starts, so editor restarts pick up the current published MCP server release.
+To use the registry tools without the LPM CLI, connect your MCP client to `https://lpm.dev/mcp`.
+It signs you in through LPM.dev in your browser. See [the LPM.dev MCP server](https://lpm.dev/docs/ai/mcp).
 
-For a custom registry, set `LPM_REGISTRY_URL` in the environment inherited by your editor or add it to the editor's MCP server environment configuration.
+## What this last version does
 
-## Manual Setup
+Editors may still start this package, for example through `npx -y @lpm-registry/mcp-server@latest`.
 
-If you prefer manual configuration, add to your editor's MCP config:
+- If it finds LPM CLI 0.86.0 or later, it starts `lpm mcp serve` in its place, and the editor gets the LPM CLI's server.
+  It looks for the CLI at `LPM_CLI_PATH`, or as `lpm` on `PATH` outside the current project.
+- Otherwise it serves the tools of earlier versions, and tells the editor's agent that it is retired.
+  `lpm mcp serve` in LPM CLI releases before 0.86.0 runs this package, so those releases keep working until you upgrade.
 
-### Claude Code
+## Renamed tools
 
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["-y", "@lpm-registry/mcp-server@latest"]
-    }
-  }
-}
-```
+The LPM CLI's server combines some tools:
 
-### Cursor (`.cursor/mcp.json`)
+| Earlier tools | Now |
+| --- | --- |
+| `lpm_package_info`, `lpm_quality_report`, `lpm_marketplace_info`, `lpm_api_docs`, `lpm_llm_context`, `lpm_package_context` | `lpm_package` |
+| `lpm_search_owners`, `lpm_packages_by_owner` | `lpm_owner` |
+| `lpm_user_info`, `lpm_pool_stats` | `lpm_account` |
 
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["-y", "@lpm-registry/mcp-server@latest"]
-    }
-  }
-}
-```
+`lpm_search`, `lpm_package_skills`, `lpm_browse_source`, `lpm_docs`, `lpm_install`, `lpm_add`, and `lpm_audit` keep their names.
+`lpm_install`, `lpm_add`, and `lpm_audit` now take `projectPath`, the absolute path of the project's directory.
 
-### VS Code (`.vscode/mcp.json`)
+## License
 
-```json
-{
-  "servers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["-y", "@lpm-registry/mcp-server@latest"]
-    }
-  }
-}
-```
-
-### Claude Desktop (`claude_desktop_config.json`)
-
-```json
-{
-  "mcpServers": {
-    "lpm-registry": {
-      "command": "npx",
-      "args": ["-y", "@lpm-registry/mcp-server@latest"]
-    }
-  }
-}
-```
-
-## Authentication
-
-`LPM_TOKEN` has highest priority. When it is unset, the server reads the OS keychain entry created by `lpm login` for the effective registry URL. Credentials are registry-scoped, so hosted, local, and custom registries do not reuse one another's tokens.
-
-Set `LPM_TOKEN` explicitly for environments without keychain access:
-
-```bash
-export LPM_TOKEN=lpm_your_token_here
-```
-
-### Registry URL
-
-Defaults to `https://lpm.dev`. Override with:
-
-```bash
-export LPM_REGISTRY_URL=https://your-registry.dev
-```
-
-For local development, copy `.env.example` to `.env.local` and set your local registry URL. These files are gitignored.
-
-## Available Tools
-
-| Tool                    | Description                                                             | Auth     | Cache |
-| ----------------------- | ----------------------------------------------------------------------- | -------- | ----- |
-| `lpm_search`            | Search packages with natural language or structured filters             | Optional | 5m    |
-| `lpm_package_info`      | Get package metadata, install method, access model, and readme          | Optional | 5m    |
-| `lpm_api_docs`          | Get structured API docs — functions, classes, types, signatures         | Optional | 5m    |
-| `lpm_llm_context`       | Get LLM-optimized usage guide — quickStart, patterns, gotchas           | Optional | 5m    |
-| `lpm_package_context`   | Get complete package context in one call (pre-install evaluation)       | Optional | 5m    |
-| `lpm_package_skills`    | Get Agent Skills for building with an installed package                 | Optional | 5m    |
-| `lpm_docs`              | Search or read LPM documentation (setup, CLI, publishing, etc.)         | No       | 30m   |
-| `lpm_browse_source`     | Browse package source code remotely (last resort)                       | Yes      | 5m    |
-| `lpm_add`               | Add a package by extracting source files into the project               | Yes      | —     |
-| `lpm_install`           | Install a managed dependency (JS → node_modules, Swift → Package.swift) | Yes      | —     |
-| `lpm_audit`             | Security audit — behavioral tags, AI findings, quality scores           | Yes      | —     |
-| `lpm_marketplace_info`  | Marketplace pricing, licensing, and seat management                     | Optional | 5m    |
-| `lpm_quality_report`    | Get quality score and 28-check breakdown                                | Optional | 5m    |
-| `lpm_search_owners`     | Search for users or organizations by name                               | No       | 5m    |
-| `lpm_packages_by_owner` | List packages published by a specific user or org                       | No       | 5m    |
-| `lpm_pool_stats`        | Get your Pool revenue earnings for the current month                    | Yes      | 1h    |
-| `lpm_user_info`         | Get authenticated user info, orgs, and usage                            | Yes      | 5m    |
-
-### Access Control
-
-- **Pool packages** require a Pool subscription ($12/mo). Without one, `lpm_browse_source`, `lpm_add`, and `lpm_install` return an error with subscription info.
-- **Marketplace packages** require a license purchase. Errors include a link to the package page.
-- **Public metadata** (`lpm_package_info`, `lpm_search`, `lpm_quality_report`) works without auth for public packages.
-
-## Troubleshooting
-
-**"No LPM token found"**
-Set the `LPM_TOKEN` environment variable in your MCP client configuration, or run `lpm login` first.
-
-**"Authentication required"**
-Some tools (`lpm_browse_source`, `lpm_add`, `lpm_install`) require authentication. Run `lpm login` or set `LPM_TOKEN`.
-
-**"Authentication failed"**
-Your token may be expired or revoked. Generate a new token at https://lpm.dev/dashboard/tokens or run `lpm login`.
-
-**"Cannot reach lpm.dev"**
-Check your internet connection. If you're behind a proxy, ensure it allows HTTPS connections to lpm.dev.
-
-**"Package not found"**
-Verify the package name format: `owner.package-name` (e.g., `alice.ui-kit`).
-
-**"Rate limit exceeded"**
-Source browsing is rate limited to 30 requests per minute. Wait and retry.
-
-**"Source browsing is currently disabled"**
-The registry has temporarily disabled source browsing. Try again later.
-
-**"Response was truncated"**
-Use the `path` parameter with `lpm_browse_source` to request specific files or directories instead of the entire package.
+ISC

@@ -1,7 +1,7 @@
 {
 	"name": "@lpm-registry/mcp-server",
-	"version": "0.3.0",
-	"description": "MCP server for the LPM package registry — exposes package info, quality reports, name checks, pool stats, and marketplace search as AI tools",
+	"version": "0.4.0",
+	"description": "Retired: the LPM CLI serves MCP itself from 0.86.0 as `lpm mcp serve`. This last release hands off to it when installed.",
 	"author": "LPM <hello@lpm.dev> (https://lpm.dev)",
 	"repository": {
 		"type": "git",
