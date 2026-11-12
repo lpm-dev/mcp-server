@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2026-11-12
+
+This is the last release. The LPM CLI serves MCP itself from version 0.86.0, as `lpm mcp serve`; run `lpm mcp setup` to move your editors to it.
+
+### Changed
+
+- **Hands off to `lpm mcp serve`.** When the server finds LPM CLI 0.86.0 or later, at `LPM_CLI_PATH` or as `lpm` on `PATH` outside the project, it starts `lpm mcp serve` on its stdio and passes stop signals on, so editors that start this package get the LPM CLI's server. With an earlier CLI, or none, it serves its own tools as before. An earlier CLI's `lpm mcp serve` runs this package, and a server started that way never hands off again.
+- **Says it is retired.** The server's instructions to agents and its log line say how to move to `lpm mcp serve`.
 
 ### Fixed
 
